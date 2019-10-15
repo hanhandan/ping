@@ -1,4 +1,5 @@
 #include <stdlib.h>
+#include <stdio.h>
 #include <errno.h>
 #include <stdint.h>
 #include <string.h>
@@ -6,7 +7,9 @@
 #include <sys/socket.h>
 #include <sys/types.h>
 #include <arpa/inet.h>
+#include <netinet/ip_icmp.h>
 #include <netinet/in.h>
+
 
 #include <time_ms.h>
 #include <arguments.h>
@@ -15,8 +18,9 @@
 extern args_t arguments;
 
 int udp_create_sock(void){
-	int sockd = socket(AF_INET, SOCK_DGRAM, 0);
-	if(sockd < 0){
+	int sockd = socket(AF_INET, SOCK_DGRAM, IPPROTO_ICMP);
+    printf("create socket from SOCK_DGRAM and IPPROTO_ICMP\n");    
+    if(sockd < 0){
 		return ERROR_SOCK;
 	} else {
 		return sockd;
@@ -47,7 +51,19 @@ int udptcp_connect(int sockd){
 }
 
 int udptcp_send(int sockd, void *payload, ping_time_t *start_time, void **data){
-	int size = send(sockd, payload, arguments.payload_size, 0);
+    // Initialize the ICMP header
+    struct icmphdr icmp_hdr;
+
+    memset(&icmp_hdr, 0, sizeof(icmp_hdr));
+    icmp_hdr.type = ICMP_ECHO;
+    icmp_hdr.un.echo.id = 1234;
+    icmp_hdr.un.echo.sequence = 1;
+    
+    char packetdata[10240]={0};
+    // Initialize the packet data (header and payload)
+    memcpy(packetdata, &icmp_hdr, sizeof(icmp_hdr));
+    memcpy(packetdata + sizeof(icmp_hdr), payload, arguments.payload_size);
+    int size = send(sockd, packetdata, arguments.payload_size+sizeof(icmp_hdr), 0);
 	if(size < 0){
 		return ERROR_SEND;
 	} else {
@@ -57,14 +73,22 @@ int udptcp_send(int sockd, void *payload, ping_time_t *start_time, void **data){
 }
 
 int udptcp_recv(int sockd, void *payload, ping_time_t *start_time, float *latency, void *data){
-	void *buffer = malloc(arguments.payload_size);
-	void *cursor = buffer;
 	int recv_len = 0, d;
 	ping_time_t end_time;
 	proto_result_t result = NO_ERROR;
+    
+    struct icmphdr icmp_hdr;
 
+    memset(&icmp_hdr, 0, sizeof(icmp_hdr));
+    icmp_hdr.type = ICMP_ECHO;
+    icmp_hdr.un.echo.id = 1234;
+    icmp_hdr.un.echo.sequence = 1;
+    
+
+	void *buffer = malloc(arguments.payload_size + sizeof(icmp_hdr));
+	void *cursor = buffer;
 	do {
-		d = recv(sockd, cursor, arguments.payload_size - recv_len, MSG_DONTWAIT);
+		d = recv(sockd, cursor, arguments.payload_size + sizeof(icmp_hdr) - recv_len, MSG_DONTWAIT);
 		if(d < 0){
 			if(errno != EAGAIN){
 				result = ERROR_RECV;
@@ -80,7 +104,8 @@ int udptcp_recv(int sockd, void *payload, ping_time_t *start_time, float *latenc
 		}
 	} while(recv_len < arguments.payload_size && result == NO_ERROR);
 
-	if(result == NO_ERROR && memcmp(buffer, payload, arguments.payload_size) != 0){
+    printf("recv result is %d\n",result);
+    if(result == NO_ERROR && memcmp(buffer + sizeof(icmp_hdr), payload, arguments.payload_size) != 0){
 		result = ERROR_DATACORRUPT;
 	}
 

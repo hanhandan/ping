@@ -16,10 +16,11 @@ typedef struct {
 	uint16_t sequence;
 } __attribute((packed)) icmp_echo_t;
 
-typedef enum {
-	ICMP_ECHO = 0,
-	ICMP_DESTUNREACH = 3
-} icmp_type_t;
+
+//typedef enum {
+//	ICMP_ECHO = 0,
+//	ICMP_DESTUNREACH = 3
+//} icmp_type_t;
 
 typedef enum {
 	ICMP_CODE_NET = 0,

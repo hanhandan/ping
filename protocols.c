@@ -120,7 +120,7 @@ protocol_stack_t* get_protocol_stack(void){
 		break;
 
 		case PROTOCOL_ICMP:
-		stack = &icmp_stack;
+		//stack = &icmp_stack;
 		break;
 
 		default:

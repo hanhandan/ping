@@ -15,6 +15,11 @@
 
 extern args_t arguments;
 
+typedef enum {
+	ICMP_ECHO = 0,
+	ICMP_DESTUNREACH = 3
+} icmp_type_t;
+
 /**
  * icmp_checksum Compute the checksum of header and data of the icmp packet
  * (cf. RFC782 https://tools.ietf.org/html/rfc792 for more information on that part)
